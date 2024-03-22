@@ -1,7 +1,7 @@
+require('dotenv').config('.env');
 const express = require('express');
 const { Location } = require('./Routes/Location'); // Importing the location routes
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
