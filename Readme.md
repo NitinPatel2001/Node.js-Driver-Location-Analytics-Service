@@ -4,14 +4,15 @@ This Node.js service collects driver location data continuously and provides ana
 
 ## Environment Variables
 
-This project uses environment variables for configuration. Create a `.env` file in the root directory of the project and add the following variables:
-
-- `MONGODB_URL`: URL for connecting to MongoDB
-
-Example `.env` file:
+This project uses environment variables for configuration. Create a `.env` file in the root directory of the project and add the following variables
 
 ```
-MONGODB_URL=
+FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY
+FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN
+FIREBASE_PROJECT_ID=YOUR_FIREBASE_PROJECT_ID
+FIREBASE_STORAGE_BUCKET=YOUR_FIREBASE_STORAGE_BUCKET
+FIREBASE_MESSAGING_SENDER_ID=YOUR_FIREBASE_MESSAGING_SENDER_ID
+FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID
 ```
 
 ## Installation

@@ -1,29 +1,40 @@
+// Import required modules
 const express = require('express');
 const route = express.Router();
-const Location = require('../db/model');
 const kmeans = require('node-kmeans');
+
+// Import Firestore-related modules
+const db = require('../firebase');
+const { addDoc, collection, query, where, orderBy, getDocs } = require('firebase/firestore');
+
 
 // Route to add a location
 route.post('/addlocation', async (req, res) => {
+    // Extract data from request body
     const { driverId, latitude, longitude } = req.body;
 
+    // Validate input data
     if (!driverId || !latitude || !longitude) {
         return res.status(400).send("Please provide the necessary data.");
     }
 
     try {
-        const newLocation = new Location({
+        // Create a new location object
+        const newLocation = {
             driverId,
             latitude,
             longitude,
-        });
+            createdAt: new Date(),
+        };
 
-        await newLocation.save();
+        // Add the new location to the Firestore collection
+        await addDoc(collection(db, 'Location'), newLocation);
         return res.status(200).send(newLocation);
     }
     catch {
-        return res.status(500).send('Error in adding the location.');
+        return res.status(500).send("Error in Adding Location.");
     }
+
 });
 
 // Function to calculate distance between two points
@@ -51,7 +62,10 @@ function getDistance(point1, point2) {
 
 // Route to get analytics for a driver's distance driven in a day
 route.post('/getanalytics', async (req, res) => {
+    // Extract data from request body
     const { driverId, date } = req.body;
+
+    // Validate input data
     if (!driverId || !date) {
         return res.status(400).send("Please enter all data.");
     }
@@ -66,19 +80,33 @@ route.post('/getanalytics', async (req, res) => {
     endDate.setHours(23, 59, 59, 999);
 
     try {
-        const driverLocationData = await Location.find({
-            driverId,
-            createdAt: { $gte: startDate, $lte: endDate },
-        }).sort({ createdAt: 1 });
+        // Construct Firestore query
+        const locationRef = collection(db, 'Location');
+        const q = query(
+            locationRef,
+            where('driverId', '==', driverId),
+            where('createdAt', '>=', startDate),
+            where('createdAt', '<=', endDate),
+            orderBy('createdAt', 'asc')
+        );
+
+        // Execute the query and retrieve location data
+        const querySnapshot = await getDocs(q);
+        const driverLocationData = querySnapshot.docs.map(doc => doc.data());
+
         const n = driverLocationData.length;
         if (n === 0) {
             return res.status(404).send("No data found.");
         }
+
         let TotalDistanceTravelled = 0;
+
+        // Calculate total distance travelled
         for (let i = 1; i < n; i++) {
             TotalDistanceTravelled += getDistance(driverLocationData[i - 1], driverLocationData[i]);
         }
 
+        // Return analytics data
         return res.status(200).json({ TotalDistanceTravelled });
     }
     catch {
@@ -88,8 +116,11 @@ route.post('/getanalytics', async (req, res) => {
 
 // Route to get hotspots in the city on a given day
 route.post('/gethotspots', async (req, res) => {
+
+    // Extract data from request body
     const { date } = req.body;
 
+    // Validate input data
     if (!date) {
         return res.status(400).send("Please enter all data.");
     }
@@ -105,13 +136,21 @@ route.post('/gethotspots', async (req, res) => {
         const endDate = new Date(date);
         endDate.setHours(23, 59, 59, 999);
 
-        const locations = await Location.find({
-            createdAt: { $gte: startDate, $lte: endDate },
-        });
+        // Construct Firestore query to retrieve locations for the given day
+        const locationRef = collection(db, 'Location');
+        const q = query(
+            locationRef,
+            where('createdAt', '>=', startDate),
+            where('createdAt', '<=', endDate),
+        );
+
+        // Execute the query and retrieve location data
+        const querySnapshot = await getDocs(q);
+        const locations = querySnapshot.docs.map(doc => doc.data());
 
         const dataPoints = locations.map(loc => [loc.latitude, loc.longitude]);
-
-        kmeans.clusterize(dataPoints, { k: 5 }, (err, result) => {
+        // k-clustering Algorithm
+        kmeans.clusterize(dataPoints, { k: Math.min(5, dataPoints.length) }, (err, result) => {
             if (err) {
                 return res.status(500).send("Error in clustering");
             }
@@ -123,6 +162,8 @@ route.post('/gethotspots', async (req, res) => {
                 },
                 size: cluster.cluster.length
             }));
+
+            // Return hotspots data
             return res.status(200).json(hotspots);
         });
     } catch (error) {
